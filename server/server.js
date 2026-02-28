@@ -11,7 +11,7 @@ const app = express();
 app.use(cors({
   origin: [
     'http://localhost:5173',
-    'https://skill-hive-sigma.vercel.app',
+    'https://skill-hive-9jos.vercel.app',
   ],
   credentials: true,
 }));
