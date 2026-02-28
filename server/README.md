@@ -19,3 +19,13 @@ Set these values in `server/.env`:
 - `SMTP_SECURE` (`true` for SSL/465, otherwise `false`)
 
 If SMTP variables are not configured, API behavior is unchanged and email sending is skipped safely.
+
+## CORS configuration for deployment
+
+Set this in `server/.env` (or your hosting provider environment settings):
+
+- `ALLOWED_ORIGINS` as a comma-separated list of frontend URLs
+
+Example:
+
+- `ALLOWED_ORIGINS=https://your-frontend.vercel.app,https://your-other-frontend.vercel.app`
