@@ -1,5 +1,6 @@
 const Application = require('../models/Application');
 const Job = require('../models/Job');
+const cloudinary = require('../config/cloudinary');
 const {
   sendApplicationSubmittedEmail,
   sendApplicationStatusEmail,
@@ -50,10 +51,27 @@ const applyForJob = async (req, res) => {
       return res.status(400).json({ message: 'PDF resume required' });
     }
 
+    // Upload resume buffer to Cloudinary
+    const uploadResult = await new Promise((resolve, reject) => {
+      const stream = cloudinary.uploader.upload_stream(
+        {
+          folder: 'resumes',
+          resource_type: 'raw',
+          public_id: `resume_${req.user._id}_${Date.now()}`,
+          format: 'pdf',
+        },
+        (error, result) => {
+          if (error) reject(error);
+          else resolve(result);
+        }
+      );
+      stream.end(req.file.buffer);
+    });
+
     const application = await Application.create({
       jobId: job._id,
       candidateId: req.user._id,
-      resumeUrl: req.file.filename,          // Store only filename for local storage
+      resumeUrl: uploadResult.secure_url,
       resumeFilename: req.file.originalname,
     });
 

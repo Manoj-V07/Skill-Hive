@@ -1,11 +1,9 @@
 const express = require('express');
 const router = express.Router();
 const jwt = require('jsonwebtoken');
-const path = require('path');
-const fs = require('fs');
+const axios = require('axios');
 const User = require('../models/User');
 const Application = require('../models/Application');
-const { resumesDir } = require('../config/localStorage');
 
 /* ===============================
    AUTH (HEADER + QUERY TOKEN)
@@ -43,25 +41,22 @@ router.get('/view/:applicationId', flexAuth, async (req, res) => {
       return res.sendStatus(403);
     }
 
-    if (!app.resumeUrl || app.resumeUrl.includes('http')) {
-      return res.status(500).json({
-        message: 'Invalid resume data. Please reupload resume.',
-      });
-    }
-
-    const filePath = path.join(resumesDir, app.resumeUrl);
-
-    if (!fs.existsSync(filePath)) {
+    if (!app.resumeUrl) {
       return res.status(404).json({
-        message: 'Resume file not found. Please reupload.',
+        message: 'No resume found. Please reupload.',
       });
     }
+
+    // Proxy the PDF from Cloudinary
+    const cloudinaryResponse = await axios.get(app.resumeUrl, {
+      responseType: 'stream',
+    });
 
     res.setHeader('Content-Type', 'application/pdf');
     res.setHeader('Content-Disposition', 'inline');
     res.setHeader('Cache-Control', 'no-store');
 
-    fs.createReadStream(filePath).pipe(res);
+    cloudinaryResponse.data.pipe(res);
   } catch (err) {
     console.error('View resume error:', err);
     res.sendStatus(500);
@@ -83,21 +78,23 @@ router.get('/download/:applicationId', flexAuth, async (req, res) => {
       return res.sendStatus(403);
     }
 
-    if (!app.resumeUrl || app.resumeUrl.includes('http')) {
-      return res.status(500).json({
-        message: 'Invalid resume data. Please reupload resume.',
-      });
-    }
-
-    const filePath = path.join(resumesDir, app.resumeUrl);
-
-    if (!fs.existsSync(filePath)) {
+    if (!app.resumeUrl) {
       return res.status(404).json({
-        message: 'Resume file not found. Please reupload.',
+        message: 'No resume found. Please reupload.',
       });
     }
 
-    res.download(filePath, app.resumeFilename || 'resume.pdf');
+    const downloadName = app.resumeFilename || 'resume.pdf';
+
+    // Proxy the PDF from Cloudinary as an attachment
+    const cloudinaryResponse = await axios.get(app.resumeUrl, {
+      responseType: 'stream',
+    });
+
+    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader('Content-Disposition', `attachment; filename="${downloadName}"`);
+
+    cloudinaryResponse.data.pipe(res);
   } catch (err) {
     console.error('Download resume error:', err);
     res.sendStatus(500);
