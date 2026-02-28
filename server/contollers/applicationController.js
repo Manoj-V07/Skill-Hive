@@ -1,6 +1,9 @@
 const Application = require('../models/Application');
 const Job = require('../models/Job');
 const cloudinary = require('../config/cloudinary');
+const path = require('path');
+const fs = require('fs/promises');
+const { resumesDir } = require('../config/localStorage');
 const {
   sendApplicationSubmittedEmail,
   sendApplicationStatusEmail,
@@ -51,27 +54,46 @@ const applyForJob = async (req, res) => {
       return res.status(400).json({ message: 'PDF resume required' });
     }
 
-    // Upload resume buffer to Cloudinary
-    const uploadResult = await new Promise((resolve, reject) => {
-      const stream = cloudinary.uploader.upload_stream(
-        {
-          folder: 'resumes',
-          resource_type: 'raw',
-          public_id: `resume_${req.user._id}_${Date.now()}`,
-          format: 'pdf',
-        },
-        (error, result) => {
-          if (error) reject(error);
-          else resolve(result);
-        }
-      );
-      stream.end(req.file.buffer);
-    });
+    const hasCloudinaryConfig =
+      !!process.env.CLOUDINARY_CLOUD_NAME &&
+      !!process.env.CLOUDINARY_API_KEY &&
+      !!process.env.CLOUDINARY_API_SECRET;
+
+    let resumeUrl;
+
+    if (hasCloudinaryConfig) {
+      const uploadResult = await new Promise((resolve, reject) => {
+        const stream = cloudinary.uploader.upload_stream(
+          {
+            folder: 'resumes',
+            resource_type: 'raw',
+            public_id: `resume_${req.user._id}_${Date.now()}`,
+            format: 'pdf',
+          },
+          (error, result) => {
+            if (error) reject(error);
+            else resolve(result);
+          }
+        );
+        stream.end(req.file.buffer);
+      });
+
+      resumeUrl = uploadResult.secure_url;
+    } else {
+      const safeOriginalName = path
+        .basename(req.file.originalname)
+        .replace(/[^a-zA-Z0-9._-]/g, '_');
+      const storedFilename = `${req.user._id}_${Date.now()}_${safeOriginalName}`;
+      const storedFilePath = path.join(resumesDir, storedFilename);
+
+      await fs.writeFile(storedFilePath, req.file.buffer);
+      resumeUrl = `local:${storedFilename}`;
+    }
 
     const application = await Application.create({
       jobId: job._id,
       candidateId: req.user._id,
-      resumeUrl: uploadResult.secure_url,
+      resumeUrl,
       resumeFilename: req.file.originalname,
     });
 
