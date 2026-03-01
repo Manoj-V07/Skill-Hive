@@ -2,6 +2,35 @@ import { useEffect, useState } from 'react';
 import PropTypes from 'prop-types';
 import api from '../api/axios';
 
+const extractErrorMessage = async (err, fallbackMessage) => {
+  try {
+    const data = err?.response?.data;
+    if (typeof data === 'string' && data.trim()) {
+      return data;
+    }
+
+    if (data instanceof Blob) {
+      const text = await data.text();
+      if (text) {
+        try {
+          const parsed = JSON.parse(text);
+          if (parsed?.message) return parsed.message;
+          return text;
+        } catch {
+          return text;
+        }
+      }
+    }
+
+    if (data?.message) {
+      return data.message;
+    }
+  } catch {
+  }
+
+  return fallbackMessage;
+};
+
 export default function ResumeViewerModal({ applicationId, filename, candidateName, onClose }) {
   const [blobUrl, setBlobUrl] = useState('');
   const [loading, setLoading] = useState(true);
@@ -21,7 +50,11 @@ export default function ResumeViewerModal({ applicationId, filename, candidateNa
         setBlobUrl(url);
       } catch (err) {
         console.error('Resume view error:', err);
-        setError('Failed to load resume. Please try again.');
+        const message = await extractErrorMessage(
+          err,
+          'Failed to load resume. Please try again.'
+        );
+        setError(message);
       } finally {
         setLoading(false);
       }
@@ -57,7 +90,11 @@ export default function ResumeViewerModal({ applicationId, filename, candidateNa
       URL.revokeObjectURL(blobUrl);
     } catch (err) {
       console.error('Resume download error:', err);
-      alert('Failed to download resume. Please try again.');
+      const message = await extractErrorMessage(
+        err,
+        'Failed to download resume. Please try again.'
+      );
+      alert(message);
     }
   };
 

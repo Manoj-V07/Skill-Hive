@@ -10,6 +10,11 @@ const {
   sendJobClosedEmail,
 } = require('../services/notificationService');
 
+const isCloudRuntime =
+  process.env.NODE_ENV === 'production' ||
+  process.env.RENDER === 'true' ||
+  !!process.env.RENDER_EXTERNAL_URL;
+
 const notifyJobClosureToCandidates = async ({ jobId, jobTitle, reason }) => {
   const applications = await Application.find({ jobId }).populate(
     'candidateId',
@@ -58,6 +63,13 @@ const applyForJob = async (req, res) => {
       !!process.env.CLOUDINARY_CLOUD_NAME &&
       !!process.env.CLOUDINARY_API_KEY &&
       !!process.env.CLOUDINARY_API_SECRET;
+
+    if (!hasCloudinaryConfig && isCloudRuntime) {
+      return res.status(503).json({
+        message:
+          'Resume upload is temporarily unavailable. Cloud storage is not configured on the server. Please contact support.',
+      });
+    }
 
     let resumeUrl;
 

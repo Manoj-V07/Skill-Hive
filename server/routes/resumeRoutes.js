@@ -85,7 +85,7 @@ const streamResume = async ({ resumeUrl, res, asAttachment = false, filename = '
 
   const localPath = resolveLocalResumePath(resumeUrl);
   if (!localPath || !fs.existsSync(localPath)) {
-    const error = new Error('Resume file not found');
+    const error = new Error('Resume file not found in server storage');
     error.statusCode = 404;
     throw error;
   }
@@ -153,7 +153,10 @@ router.get('/view/:applicationId', flexAuth, async (req, res) => {
   } catch (err) {
     console.error('View resume error:', err);
     if (err?.statusCode === 404) {
-      return res.status(404).json({ message: 'Resume file not found. Please reupload.' });
+      return res.status(404).json({
+        message:
+          'Resume file is no longer available on the server. In cloud deployments this can happen after restart when local storage is used. Please re-upload the resume.',
+      });
     }
     res.status(500).json({ message: 'Failed to load resume' });
   }
@@ -189,7 +192,10 @@ router.get('/download/:applicationId', flexAuth, async (req, res) => {
   } catch (err) {
     console.error('Download resume error:', err);
     if (err?.statusCode === 404) {
-      return res.status(404).json({ message: 'Resume file not found. Please reupload.' });
+      return res.status(404).json({
+        message:
+          'Resume file is no longer available on the server. In cloud deployments this can happen after restart when local storage is used. Please re-upload the resume.',
+      });
     }
     res.status(500).json({ message: 'Failed to download resume' });
   }
